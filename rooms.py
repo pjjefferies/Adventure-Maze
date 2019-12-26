@@ -24,10 +24,10 @@ class room(object):
             or len(self.size) != 2
                 or (not all(isinstance(x, int) for x in self.size))):
             self.size = [10, 10]
-        self.width = size[0]
+        self.width = self.size[0]
         self.wall_width = int(self.width * 0.4)
         self.door_window_width = self.width - (self.wall_width * 2)
-        self.length = size[1]
+        self.length = self.size[1]
         self.wall_length = int(self.length * 0.4)
         self.door_window_length = self.length - (self.wall_length * 2)
         # self.map = []
@@ -102,9 +102,13 @@ if __name__ == '__main__':
     DOORS = (1, 0, 0, 1)
     WINDOWS = (0, 1, 1, 0)
 
-    new_room = room(  # LOCATION,
-                    SIZE,
-                    DOORS,
-                    WINDOWS)
+    new_room1 = room(  # LOCATION,
+                     SIZE,
+                     DOORS,
+                     WINDOWS)
 
-    print(new_room)
+    new_room2 = room()
+
+    print(new_room1)
+    print('------')
+    print(new_room2)

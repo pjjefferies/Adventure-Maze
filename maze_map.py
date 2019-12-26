@@ -36,7 +36,20 @@ class maze_map(object):
                 self.room_map[vert_room, horiz_room] = (
                     vert_room * self.no_rooms_wide + horiz_room)
 
-    """
+    def validate_outside_doors(self, outside_door):  # (row, col, direction)
+        try:
+            outside_door = list(outside_door)
+            if len(outside_door) != 3:
+                raise TypeError
+            row, col, direction = [int(x) for x in outside_door]
+        except (TypeError, IndexError):
+            raise
+
+        return ((row == 0 and direction == 0)
+                or (col == (self.no_rooms_wide - 1) and direction == 1)
+                or (row == (self.no_rooms_long - 1) and direction == 2)
+                or (col == 0 and direction == 3))
+
     def generate_random(self,
                         the_entrance=None,
                         the_exit=None,
@@ -48,61 +61,145 @@ class maze_map(object):
                         diff_limit=0.95,   # Shortest path max ratio to max
                                            # for this maze size
                         ):
-        if (the_entrance is None or (not isinstance(the_entrance, list))
-            or len(the_entrance) != 3
-            or (not all(isinstance(x, int) for x in the_entrance))
-            or the_entrance[0] < 0 or the_entrance[0] >= self.no_rooms_wide
-            or the_entrance[1] < 0 or the_entrance[1] >= self.no_rooms_long
-            or (the_entrance[2] == 0 and the_entrance[1] != 0)
-            or (the_entrance[2] == 1 and
-                the_entrance[0] != (self.no_room_wide-1))
-            or (the_entrance[2] == 2 and
-                the_entrance[1] != (self.no_room_long-1))
-                or (the_entrance[2] == 3 and the_entrance[0] != 0)):
-            the_entrance = (self.no_rooms_long - 1, 0, 0)  # (y, x, z)
-            self.rooms[the_entrace[0], the_entrance[1].]
-        if (the_exit is None or (not isinstance(the_exit, list))
-            or len(the_exit) != 3
-            or (not all(isinstance(x, int) for x in the_exit))
-            or the_exit[0] < 0 or the_exit[0] >= self.no_rooms_wide
-            or the_exit[1] < 0 or the_exit[1] >= self.no_rooms_long
-            or (the_exit[2] == 0 and the_exit[1] != 0)
-            or (the_exit[2] == 1 and the_exit[0] != (self.no_room_wide-1))
-            or (the_exit[2] == 2 and the_exit[1] != (self.no_room_long-1))
-                or (the_exit[2] == 3 and the_exit[0] != 0)):
-            the_exit = (self.no_rooms_width - 1, 0, 0)
 
-        # Top & Bottom Outside Horiz. Wall
-        for horiz_room in range(self.no_rooms_wide):
-            
+        # Verify good Entrance Set
+        try:
+            if not self.validate_outside_doors(the_entrance):
+                the_entrance = [self.no_rooms_long - 1, 0, 2]  # (y, x, dir.)
+        except (TypeError, IndexError):
+            the_entrance = [self.no_rooms_long - 1, 0, 2]  # (y, x, dir.)
 
-        for vert_room in range(self.no_rooms_long):
+        # Identify Entrance Door in Room
+        try:
+            self.rooms[
+                self.room_map[the_entrance[0],
+                              the_entrance[1]]].doors[the_entrance[2]] = -1
+        except IndexError:
+            raise TypeError('Entrance Direction not valid: ' + the_entrance[2])
+
+        # Verify good Exit Set
+        try:
+            if not self.validate_outside_doors(the_exit):
+                the_exit = [0, self.no_rooms_wide - 1, 0]  # (y, x, direction)
+        except (TypeError, IndexError):
+            the_exit = [0, self.no_rooms_wide - 1, 0]  # (y, x, direction)
+
+        # Identify Exit Door in Room
+        try:
+            self.rooms[
+                self.room_map[the_exit[0],
+                              the_exit[1]]].doors[the_exit[2]] = -2
+        except IndexError:
+            raise TypeError('Exit Direction not valid: ' + the_exit[2])
+
+
+        n = 1  # Use counter until validate so doors get gen. at least once
+
+
+        while (not self.validate(ease_limit=ease_limit, diff_limit=diff_limit)
+               or n == 1):
+            n += 1
+            # Top & Bottom Outside Horiz. Wall Windows
             for horiz_room in range(self.no_rooms_wide):
-                # Inside horiz. walls
-                if (random() >= door_freq
-                        and vert_room <= (self.no_rooms_long - 1)):
-                    self.rooms[vert_room][horiz_room].door[2] = (
-                        (vert_room + 1, horiz_room))
-                    self.rooms[vert_room + 1][horiz_room].door[0] = (
-                        (vert_room, horiz_room))
-                # Inside vert. walls
-                if (random() >= door_freq
-                        and horiz_room <= (self.no_rooms_wide - 1)):
-                    self.rooms[vert_room][horiz_room].door[1] = (
-                        (vert_room, horiz_room + 1))
-                    self.rooms[vert_room][horiz_room + 1].door[2] = (
-                        (vert_room, horiz_room))
-            # Left/West Wall
-            # if (random() >= window_freq
-            #     and self.rooms[vert_room][0].
-    """
+                if (random() >= window_freq  # Top Wall
+                        and self.rooms[self.room_map[
+                            0, horiz_room]].doors[0] == 0):
+                    self.rooms[self.room_map[0, horiz_room]].windows[0] = 1
+                else:
+                    self.rooms[self.room_map[0, horiz_room]].windows[0] = 0
+                if (random() >= window_freq  # Bottom Wall
+                        and self.rooms[
+                            self.room_map[self.no_rooms_long - 1,
+                                          horiz_room]].doors[2] == 0):
+                    self.rooms[self.room_map[self.no_rooms_long - 1,
+                                             horiz_room]].windows[2] = 1
+                else:
+                    self.rooms[self.room_map[self.no_rooms_long - 1,
+                                             horiz_room]].windows[2] = 0
+
+            # Left & Right Outside Horiz. Wall Windows
+            for vert_room in range(self.no_rooms_long):
+                if (random() >= window_freq  # Left Wall
+                        and self.rooms[
+                        self.room_map[vert_room, 0]].doors[3] == 0):
+                    self.rooms[self.room_map[vert_room, 0]].windows[3] = 1
+                else:
+                    self.rooms[self.room_map[vert_room, 0]].windows[3] = 0
+                if (random() >= window_freq  # Right Wall
+                        and self.rooms[self.room_map[
+                        vert_room, self.no_rooms_wide - 1]].doors[1] == 0):
+                    self.rooms[self.room_map[
+                        vert_room, self.no_rooms_wide - 1]].windows[1] = 1
+                else:
+                    self.rooms[self.room_map[
+                        vert_room, self.no_rooms_wide - 1]].windows[1] = 0
+
+            # Inside Doors
+            for vert_room in range(self.no_rooms_long - 1):
+                for horiz_room in range(self.no_rooms_wide):
+                    # Horiz. Doors
+                    if random() >= door_freq:
+                        self.rooms[
+                            self.room_map[vert_room][horiz_room]].doors[2] = (
+                            self.room_map[vert_room + 1][horiz_room])
+                        self.rooms[
+                            self.room_map[vert_room + 1][
+                                    horiz_room]].doors[0] = (
+                                    self.room_map[vert_room][horiz_room])
+                    else:
+                        self.rooms[
+                            self.room_map[vert_room][horiz_room]].doors[2] = 0
+                        self.rooms[self.room_map[vert_room + 1][
+                            horiz_room]].doors[0] = 0
+                    # Vert. Doors
+                    if horiz_room < (self.no_rooms_wide - 1):
+                        if random() >= door_freq:
+                            self.rooms[
+                                self.room_map[vert_room][
+                                    horiz_room]].doors[1] = (
+                                self.room_map[vert_room][horiz_room + 1])
+                            self.rooms[
+                                self.room_map[vert_room][
+                                    horiz_room + 1]].doors[2] = (
+                                    self.room_map[vert_room][horiz_room])
+                        else:
+                            self.rooms[
+                                self.room_map[vert_room][
+                                    horiz_room]].doors[1] = 0
+                            self.rooms[
+                                self.room_map[vert_room][
+                                    horiz_room + 1]].doors[2] = 0
+
+    def validate(self,
+                 ease_limit=0,
+                 diff_limit=1):
+        return True
+
+    def maze_map(self):
+        temp_map = []
+        for v_room in range(self.no_rooms_long):
+            temp_room_map = [None] * self.no_rooms_wide
+            for h_room in range(self.no_rooms_wide):
+                temp_room_map[h_room] = (
+                    self.rooms[self.room_map[v_room, h_room]].room_map())
+
+            for v_block in range(len(temp_room_map[0])):
+                row_str = ''
+                for h_room in range(self.no_rooms_wide):
+                    row_str += temp_room_map[h_room][v_block]
+                temp_map.append(row_str)
+        return temp_map
+
+    def __str__(self):
+        return('\n'.join(self.maze_map()))
+
 
 
 if __name__ == '__main__':
     NO_ROOMS_WIDE = 5
     NO_ROOMS_LONG = 5
-    ROOM_WIDTH=20
-    ROOM_LENGTH=15
+    ROOM_WIDTH = 20
+    ROOM_LENGTH = 20
 
     new_maze_map1 = maze_map()
 
@@ -111,5 +208,12 @@ if __name__ == '__main__':
                              room_width=ROOM_WIDTH,
                              room_length=ROOM_LENGTH,
                              )
+
+    print("new_maze_map1:\n", new_maze_map1)
+
+    print("new_maze_map2:\n", new_maze_map2)
+
+    new_maze_map2.generate_random()
+    print("new_maze_map2:\n", new_maze_map2)
 
     # print(new_room)
