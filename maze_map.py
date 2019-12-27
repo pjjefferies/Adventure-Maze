@@ -16,6 +16,7 @@ class maze_map(object):
                  no_rooms_long=2,
                  room_width=10,
                  room_length=10,
+                 init_room_visibility=True,
                  ):
         self.no_rooms_wide = no_rooms_wide
         self.no_rooms_long = no_rooms_long
@@ -24,9 +25,10 @@ class maze_map(object):
 
         self.rooms = []  # rooms is list of room objects
         for room_no in range(self.no_rooms_wide * self.no_rooms_long):
-            self.rooms.append(room((self.room_length, self.room_width),
-                                   (0, 0, 0, 0),  # Doors, none
-                                   (0, 0, 0, 0),  # Windows, none
+            self.rooms.append(room(size=(self.room_length, self.room_width),
+                                   doors=(0, 0, 0, 0),  # Doors, none
+                                   windows=(0, 0, 0, 0),  # Windows, none
+                                   visible=init_room_visibility,
                                    ))
 
         self.room_map = np.empty((self.no_rooms_long, self.no_rooms_wide),
@@ -77,6 +79,8 @@ class maze_map(object):
         except IndexError:
             raise TypeError('Entrance Direction not valid: ' + the_entrance[2])
 
+        self.entrance = the_entrance
+
         # Verify good Exit Set
         try:
             if not self.validate_outside_doors(the_exit):
@@ -92,6 +96,7 @@ class maze_map(object):
         except IndexError:
             raise TypeError('Exit Direction not valid: ' + the_exit[2])
 
+        self.exit = the_exit
 
         n = 1  # Use counter until validate so doors get gen. at least once
 
@@ -160,7 +165,7 @@ class maze_map(object):
                                 self.room_map[vert_room][horiz_room + 1])
                             self.rooms[
                                 self.room_map[vert_room][
-                                    horiz_room + 1]].doors[2] = (
+                                    horiz_room + 1]].doors[3] = (
                                     self.room_map[vert_room][horiz_room])
                         else:
                             self.rooms[
@@ -168,11 +173,39 @@ class maze_map(object):
                                     horiz_room]].doors[1] = 0
                             self.rooms[
                                 self.room_map[vert_room][
-                                    horiz_room + 1]].doors[2] = 0
+                                    horiz_room + 1]].doors[3] = 0
 
     def validate(self,
                  ease_limit=0,
                  diff_limit=1):
+        shortest_path_length = None
+        solution_paths = []
+        print('self.entrance:', self.entrance)
+        print('self.entrance[0]:', self.entrance[0], type(self.entrance[0]))
+        active_paths = [[self.room_map[self.entrance[0], self.entrance[1]]]]
+
+        while active_paths:
+            new_active_paths = []
+            print('active_paths:', active_paths)
+            for a_path in active_paths:
+                curr_room = a_path[-1]
+                try:
+                    prev_room = a_path[-2]
+                except IndexError:
+                    prev_room = []
+                new_directions = [x for x in self.rooms[curr_room].doors
+                                  if (x not in a_path and x != 0)]
+                for new_dir in new_directions:
+                    if new_dir == -2:  # Found an exit
+                        solution_paths.append(a_path)
+                        continue  # Ignore remainder of doors, if any
+                    if new_dir in a_path:  # Yea, we made a loop
+                        continue
+                    new_path = a_path + [new_dir]
+                    new_active_paths.append(new_path)
+            active_paths = new_active_paths.copy()
+        print('Solution Paths:\n', solution_paths)
+
         return True
 
     def maze_map(self):
@@ -180,13 +213,19 @@ class maze_map(object):
         for v_room in range(self.no_rooms_long):
             temp_room_map = [None] * self.no_rooms_wide
             for h_room in range(self.no_rooms_wide):
-                temp_room_map[h_room] = (
-                    self.rooms[self.room_map[v_room, h_room]].room_map())
+                    temp_room_map[h_room] = (
+                        self.rooms[self.room_map[v_room, h_room]].room_map())
 
             for v_block in range(len(temp_room_map[0])):
+                if (v_room != self.no_rooms_long - 1
+                        and v_block == len(temp_room_map[0]) - 1):
+                    continue
                 row_str = ''
                 for h_room in range(self.no_rooms_wide):
-                    row_str += temp_room_map[h_room][v_block]
+                    if h_room != self.no_rooms_wide -1:
+                        row_str += temp_room_map[h_room][v_block][:-1]
+                    else:
+                        row_str += temp_room_map[h_room][v_block]
                 temp_map.append(row_str)
         return temp_map
 
@@ -196,10 +235,10 @@ class maze_map(object):
 
 
 if __name__ == '__main__':
-    NO_ROOMS_WIDE = 5
-    NO_ROOMS_LONG = 5
-    ROOM_WIDTH = 20
-    ROOM_LENGTH = 20
+    NO_ROOMS_WIDE = 20
+    NO_ROOMS_LONG = 20
+    ROOM_WIDTH = 5
+    ROOM_LENGTH = 5
 
     new_maze_map1 = maze_map()
 
@@ -209,6 +248,12 @@ if __name__ == '__main__':
                              room_length=ROOM_LENGTH,
                              )
 
+    new_maze_map3 = maze_map(no_rooms_wide=NO_ROOMS_WIDE,
+                             no_rooms_long=NO_ROOMS_LONG,
+                             room_width=ROOM_WIDTH,
+                             room_length=ROOM_LENGTH,
+                             init_room_visibility=False)
+
     print("new_maze_map1:\n", new_maze_map1)
 
     print("new_maze_map2:\n", new_maze_map2)
@@ -216,4 +261,5 @@ if __name__ == '__main__':
     new_maze_map2.generate_random()
     print("new_maze_map2:\n", new_maze_map2)
 
-    # print(new_room)
+    new_maze_map3.generate_random()
+    print("new_maze_map3:\n", new_maze_map3)

@@ -15,6 +15,7 @@ class room(object):
                  windows=None,  # [N,E,S,W] list of 1 if window, 0 if no window
                  # wall_decoration,
                  # light_level=1,
+                 visible=True,
                  ):
         # self.location = location
         self.size = size
@@ -35,6 +36,7 @@ class room(object):
         self.windows = windows
         # self.wall_decoration = wall_decoration
         # self.light_level = light_level
+        self.visible = visible
         self.door_char = ' '
         self.window_char = '░'
 
@@ -57,6 +59,11 @@ class room(object):
 
     def room_map(self):
         temp_map = []
+
+        if not self.visible:
+            for a_v_block in range(self.length):
+                temp_map.append(' ' * self.width)
+            return temp_map
 
         # Top/North Wall
         mid_wall_char = (self.door_char if self.doors[0] else
@@ -101,6 +108,9 @@ if __name__ == '__main__':
     SIZE = (10, 10)
     DOORS = (1, 0, 0, 1)
     WINDOWS = (0, 1, 1, 0)
+    # VISIBLE1 = True
+    VISIBLE2 = True
+    VISIBLE3 = False
 
     new_room1 = room(  # LOCATION,
                      SIZE,
@@ -108,7 +118,10 @@ if __name__ == '__main__':
                      WINDOWS)
 
     new_room2 = room()
+    new_room3 = room(visible=VISIBLE3)
 
     print(new_room1)
     print('------')
     print(new_room2)
+    print('------')
+    print(new_room3)
