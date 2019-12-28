@@ -5,7 +5,8 @@ Created on Sun Dec 22 23:12:05 2019
 @author: PaulJ
 """
 
-from random import random
+from math import ceil
+from random import random, seed
 import numpy as np
 from rooms import room
 
@@ -23,10 +24,16 @@ class maze_map(object):
         self.room_width = room_width
         self.room_length = room_length
 
+        temp_room = room()
+        self.no_door = temp_room.no_door  # value used for no door
+
         self.rooms = []  # rooms is list of room objects
         for room_no in range(self.no_rooms_wide * self.no_rooms_long):
             self.rooms.append(room(size=(self.room_length, self.room_width),
-                                   doors=(0, 0, 0, 0),  # Doors, none
+                                   doors=(self.no_door,
+                                          self.no_door,
+                                          self.no_door,
+                                          self.no_door),  # Doors, none
                                    windows=(0, 0, 0, 0),  # Windows, none
                                    visible=init_room_visibility,
                                    ))
@@ -57,11 +64,12 @@ class maze_map(object):
                         the_exit=None,
                         door_freq=0.33,    # 33% of internal walls have doors
                         window_freq=0.25,  # 25% of external walls windows
-                        ease_limit=1.25,   # Shortest path must be this ratio
-                                           # of shortest possible path for this
-                                           # maze size
+                        ease_limit=0.5,   # Shortest path must be this ratio
+                                           # between shortest possible path 
+                                           # and longest possible path
                         diff_limit=0.95,   # Shortest path max ratio to max
                                            # for this maze size
+                        max_tries=100
                         ):
 
         # Verify good Entrance Set
@@ -98,24 +106,26 @@ class maze_map(object):
 
         self.exit = the_exit
 
-        n = 1  # Use counter until validate so doors get gen. at least once
+        tries = 0  # Use counter until validate so doors get gen. at least once
 
 
-        while (not self.validate(ease_limit=ease_limit, diff_limit=diff_limit)
-               or n == 1):
-            n += 1
+        while (not self.validate(ease_limit=ease_limit,
+                                 difficulty_limit=diff_limit)
+               and tries < max_tries):
+            tries += 1
             # Top & Bottom Outside Horiz. Wall Windows
             for horiz_room in range(self.no_rooms_wide):
-                if (random() >= window_freq  # Top Wall
+                if (random() <= window_freq  # Top Wall
                         and self.rooms[self.room_map[
-                            0, horiz_room]].doors[0] == 0):
+                            0, horiz_room]].doors[0] == self.no_door):
                     self.rooms[self.room_map[0, horiz_room]].windows[0] = 1
                 else:
                     self.rooms[self.room_map[0, horiz_room]].windows[0] = 0
-                if (random() >= window_freq  # Bottom Wall
+                if (random() <= window_freq  # Bottom Wall
                         and self.rooms[
-                            self.room_map[self.no_rooms_long - 1,
-                                          horiz_room]].doors[2] == 0):
+                            self.room_map[
+                                self.no_rooms_long - 1,
+                                horiz_room]].doors[2] == self.no_door):
                     self.rooms[self.room_map[self.no_rooms_long - 1,
                                              horiz_room]].windows[2] = 1
                 else:
@@ -124,15 +134,16 @@ class maze_map(object):
 
             # Left & Right Outside Horiz. Wall Windows
             for vert_room in range(self.no_rooms_long):
-                if (random() >= window_freq  # Left Wall
+                if (random() <= window_freq  # Left Wall
                         and self.rooms[
-                        self.room_map[vert_room, 0]].doors[3] == 0):
+                        self.room_map[vert_room, 0]].doors[3] == self.no_door):
                     self.rooms[self.room_map[vert_room, 0]].windows[3] = 1
                 else:
                     self.rooms[self.room_map[vert_room, 0]].windows[3] = 0
-                if (random() >= window_freq  # Right Wall
+                if (random() <= window_freq  # Right Wall
                         and self.rooms[self.room_map[
-                        vert_room, self.no_rooms_wide - 1]].doors[1] == 0):
+                        vert_room, self.no_rooms_wide - 1]].doors[1] == (
+                            self.no_door)):
                     self.rooms[self.room_map[
                         vert_room, self.no_rooms_wide - 1]].windows[1] = 1
                 else:
@@ -143,7 +154,7 @@ class maze_map(object):
             for vert_room in range(self.no_rooms_long - 1):
                 for horiz_room in range(self.no_rooms_wide):
                     # Horiz. Doors
-                    if random() >= door_freq:
+                    if random() <= door_freq:
                         self.rooms[
                             self.room_map[vert_room][horiz_room]].doors[2] = (
                             self.room_map[vert_room + 1][horiz_room])
@@ -153,12 +164,13 @@ class maze_map(object):
                                     self.room_map[vert_room][horiz_room])
                     else:
                         self.rooms[
-                            self.room_map[vert_room][horiz_room]].doors[2] = 0
+                            self.room_map[vert_room][horiz_room]].doors[2] = (
+                                self.no_door)
                         self.rooms[self.room_map[vert_room + 1][
-                            horiz_room]].doors[0] = 0
+                            horiz_room]].doors[0] = self.no_door
                     # Vert. Doors
                     if horiz_room < (self.no_rooms_wide - 1):
-                        if random() >= door_freq:
+                        if random() <= door_freq:
                             self.rooms[
                                 self.room_map[vert_room][
                                     horiz_room]].doors[1] = (
@@ -170,43 +182,79 @@ class maze_map(object):
                         else:
                             self.rooms[
                                 self.room_map[vert_room][
-                                    horiz_room]].doors[1] = 0
+                                    horiz_room]].doors[1] = self.no_door
                             self.rooms[
                                 self.room_map[vert_room][
-                                    horiz_room + 1]].doors[3] = 0
+                                    horiz_room + 1]].doors[3] = self.no_door
+        print('It took', tries, 'tries to try to get a good maze')
 
     def validate(self,
                  ease_limit=0,
-                 diff_limit=1):
+                 difficulty_limit=1):
         shortest_path_length = None
         solution_paths = []
-        print('self.entrance:', self.entrance)
-        print('self.entrance[0]:', self.entrance[0], type(self.entrance[0]))
+        # print('self.entrance:', self.entrance)
+        # print('self.entrance[0]:', self.entrance[0], type(self.entrance[0]))
         active_paths = [[self.room_map[self.entrance[0], self.entrance[1]]]]
 
         while active_paths:
             new_active_paths = []
-            print('active_paths:', active_paths)
+            # print('active_paths:', active_paths)
             for a_path in active_paths:
                 curr_room = a_path[-1]
                 try:
                     prev_room = a_path[-2]
                 except IndexError:
-                    prev_room = []
+                    prev_room = None
                 new_directions = [x for x in self.rooms[curr_room].doors
-                                  if (x not in a_path and x != 0)]
+                                  if (x not in a_path
+                                      and x not in [self.no_door, -1]
+                                      and x != prev_room)]
                 for new_dir in new_directions:
                     if new_dir == -2:  # Found an exit
                         solution_paths.append(a_path)
-                        continue  # Ignore remainder of doors, if any
+                        break  # Ignore remainder of doors, if any
                     if new_dir in a_path:  # Yea, we made a loop
                         continue
                     new_path = a_path + [new_dir]
                     new_active_paths.append(new_path)
             active_paths = new_active_paths.copy()
-        print('Solution Paths:\n', solution_paths)
+        # print('Solution Paths:', solution_paths)
 
-        return True
+        shortest_possible_path_length = (
+            abs(self.entrance[0] - self.exit[0])
+            + abs(self.entrance[1] - self.exit[1]))
+        longest_possible_path_length = (self.no_rooms_wide
+                                        * self.no_rooms_long - 1)
+
+        min_path_length_allowed = ceil(ease_limit * (
+            longest_possible_path_length - shortest_possible_path_length)
+            + shortest_possible_path_length)
+        # print('min_path_length_allowed:', min_path_length_allowed)
+
+        # solution_paths = [x for x in solution_paths
+        #                   if len(x) >= min_path_length_allowed]
+        # print('Solution Paths:\n', solution_paths)
+
+        path_lengths = [len(x) for x in solution_paths]
+        # print('path_lengths:', path_lengths)
+        if not path_lengths:
+            return False
+        shortest_path_number = path_lengths.index(min(path_lengths))
+        solution_path = solution_paths[shortest_path_number]
+        shortest_path_length = len(solution_path)
+
+        difficulty_rating = (
+            (shortest_path_length - shortest_possible_path_length)
+            / (longest_possible_path_length - shortest_possible_path_length))
+
+        # print('shortest_path_length:', shortest_path_length,
+        #       '\nshortest_possible_path_length:', shortest_possible_path_length,
+        #       '\nlongest_possible_path_length:', longest_possible_path_length)
+        # print('ease_limit:', ease_limit, '\ndifficulty_rating:',
+        #       difficulty_rating, '\ndifficulty_limit:', difficulty_limit)
+
+        return ease_limit <= difficulty_rating <= difficulty_limit
 
     def maze_map(self):
         temp_map = []
@@ -235,8 +283,9 @@ class maze_map(object):
 
 
 if __name__ == '__main__':
-    NO_ROOMS_WIDE = 20
-    NO_ROOMS_LONG = 20
+    seed(155)
+    NO_ROOMS_WIDE = 5
+    NO_ROOMS_LONG = 5
     ROOM_WIDTH = 5
     ROOM_LENGTH = 5
 
@@ -254,12 +303,18 @@ if __name__ == '__main__':
                              room_length=ROOM_LENGTH,
                              init_room_visibility=False)
 
-    print("new_maze_map1:\n", new_maze_map1)
+    # print("new_maze_map1:\n", new_maze_map1)
 
+    # print("new_maze_map2:\n", new_maze_map2)
+
+    new_maze_map2.generate_random(# the_entrance=None,
+                                  # the_exit=None,
+                                  door_freq=0.35,
+                                  window_freq=0.25,
+                                  ease_limit=0.4,
+                                  diff_limit=0.9,
+                                  max_tries=100000)
     print("new_maze_map2:\n", new_maze_map2)
 
-    new_maze_map2.generate_random()
-    print("new_maze_map2:\n", new_maze_map2)
-
-    new_maze_map3.generate_random()
-    print("new_maze_map3:\n", new_maze_map3)
+    # new_maze_map3.generate_random()
+    # print("new_maze_map3:\n", new_maze_map3)
