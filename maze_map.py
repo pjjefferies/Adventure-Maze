@@ -69,6 +69,8 @@ class maze_map(object):
                                            # and longest possible path
                         diff_limit=0.95,   # Shortest path max ratio to max
                                            # for this maze size
+                        min_length_limit=0.1,
+                        max_length_limit=1,
                         max_tries=100
                         ):
 
@@ -106,13 +108,14 @@ class maze_map(object):
 
         self.exit = the_exit
 
-        tries = 0  # Use counter until validate so doors get gen. at least once
-
+        self.tries = 0  # Use counter until validate so doors get gen. at least once
 
         while (not self.validate(ease_limit=ease_limit,
-                                 difficulty_limit=diff_limit)
-               and tries < max_tries):
-            tries += 1
+                                 difficulty_limit=diff_limit,
+                                 min_length_limit=min_length_limit,
+                                 max_length_limit=max_length_limit)
+               and self.tries < max_tries):
+            self.tries += 1
             # Top & Bottom Outside Horiz. Wall Windows
             for horiz_room in range(self.no_rooms_wide):
                 if (random() <= window_freq  # Top Wall
@@ -186,12 +189,19 @@ class maze_map(object):
                             self.rooms[
                                 self.room_map[vert_room][
                                     horiz_room + 1]].doors[3] = self.no_door
-        print('It took', tries, 'tries to try to get a good maze')
+        if self.tries < max_tries:
+            print('It took', self.tries, 'tries to try to get a good maze')
+        else:
+            print(self.tries, 'tries were made but no solution was found that met'
+                  + ' the criteria')
 
     def validate(self,
                  ease_limit=0,
-                 difficulty_limit=1):
+                 difficulty_limit=1,
+                 min_length_limit=0,
+                 max_length_limit=1):
         shortest_path_length = None
+        dead_ends = 0
         solution_paths = []
         # print('self.entrance:', self.entrance)
         # print('self.entrance[0]:', self.entrance[0], type(self.entrance[0]))
@@ -210,6 +220,8 @@ class maze_map(object):
                                   if (x not in a_path
                                       and x not in [self.no_door, -1]
                                       and x != prev_room)]
+                if not new_directions:
+                    dead_ends += 1
                 for new_dir in new_directions:
                     if new_dir == -2:  # Found an exit
                         solution_paths.append(a_path)
@@ -244,9 +256,11 @@ class maze_map(object):
         solution_path = solution_paths[shortest_path_number]
         shortest_path_length = len(solution_path)
 
-        difficulty_rating = (
+        length_rating = (
             (shortest_path_length - shortest_possible_path_length)
             / (longest_possible_path_length - shortest_possible_path_length))
+
+        difficulty_rating = dead_ends / shortest_path_length
 
         # print('shortest_path_length:', shortest_path_length,
         #       '\nshortest_possible_path_length:', shortest_possible_path_length,
@@ -254,7 +268,8 @@ class maze_map(object):
         # print('ease_limit:', ease_limit, '\ndifficulty_rating:',
         #       difficulty_rating, '\ndifficulty_limit:', difficulty_limit)
 
-        return ease_limit <= difficulty_rating <= difficulty_limit
+        return ((ease_limit <= difficulty_rating <= difficulty_limit)
+                and (min_length_limit <= length_rating <= max_length_limit))
 
     def maze_map(self):
         temp_map = []
@@ -283,13 +298,15 @@ class maze_map(object):
 
 
 if __name__ == '__main__':
+    from time import time
+    start_time = time()
     seed(155)
-    NO_ROOMS_WIDE = 5
-    NO_ROOMS_LONG = 5
+    NO_ROOMS_WIDE = 10
+    NO_ROOMS_LONG = 10
     ROOM_WIDTH = 5
     ROOM_LENGTH = 5
 
-    new_maze_map1 = maze_map()
+    # new_maze_map1 = maze_map()
 
     new_maze_map2 = maze_map(no_rooms_wide=NO_ROOMS_WIDE,
                              no_rooms_long=NO_ROOMS_LONG,
@@ -297,11 +314,13 @@ if __name__ == '__main__':
                              room_length=ROOM_LENGTH,
                              )
 
+    """
     new_maze_map3 = maze_map(no_rooms_wide=NO_ROOMS_WIDE,
                              no_rooms_long=NO_ROOMS_LONG,
                              room_width=ROOM_WIDTH,
                              room_length=ROOM_LENGTH,
                              init_room_visibility=False)
+    """
 
     # print("new_maze_map1:\n", new_maze_map1)
 
@@ -309,12 +328,23 @@ if __name__ == '__main__':
 
     new_maze_map2.generate_random(# the_entrance=None,
                                   # the_exit=None,
-                                  door_freq=0.35,
+                                  door_freq=0.45,
                                   window_freq=0.25,
-                                  ease_limit=0.4,
-                                  diff_limit=0.9,
+                                  ease_limit=0.6,
+                                  diff_limit=1,
+                                  min_length_limit=.25,
+                                  max_length_limit=1,
                                   max_tries=100000)
     print("new_maze_map2:\n", new_maze_map2)
 
     # new_maze_map3.generate_random()
     # print("new_maze_map3:\n", new_maze_map3)
+
+    elapsed_time = time() - start_time
+    time_per_map = elapsed_time / new_maze_map2.tries * 1000
+    time_per_map_per_room = (time_per_map /
+                             (NO_ROOMS_WIDE * NO_ROOMS_LONG) * 1000)
+    print('Elapsed Time:', round(elapsed_time, 2), 's')
+    print('Tries:', new_maze_map2.tries)
+    print('Time per map:', round(time_per_map, 2), 'ms')
+    print('Time per map per room:', round(time_per_map_per_room, 2), 'µs')
