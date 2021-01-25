@@ -301,8 +301,8 @@ if __name__ == '__main__':
     from time import time
     start_time = time()
     seed(155)
-    NO_ROOMS_WIDE = 10
-    NO_ROOMS_LONG = 10
+    NO_ROOMS_WIDE = 9
+    NO_ROOMS_LONG = 9
     ROOM_WIDTH = 5
     ROOM_LENGTH = 5
 
